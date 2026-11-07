@@ -3,13 +3,13 @@ import UIKit
 import WebKit
 
 @main
-struct NFSMWOApp: App {
+struct PBMobileApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
         WindowGroup {
             GameContainerView()
-                .ignoresSafeArea(.all) // Memaksa SwiftUI mengabaikan safe area
+                .ignoresSafeArea(.all)
         }
     }
 }
@@ -26,18 +26,19 @@ struct GameContainerView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            NFSMWOWebView(
-                url: URL(string: "https://web.nfsmwo.com")!,
+            GameWebView(
+                url: URL(string: "https://pbmobile.app")!,
                 reloadTrigger: $reloadTrigger
             )
             .ignoresSafeArea(.all)
 
+            // Tombol transparan di kiri atas buat jaga-jaga kalau mau refresh game
             Button {
                 showQuickMenu = true
             } label: {
                 Image(systemName: "ellipsis.circle.fill")
                     .font(.system(size: 24))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.white.opacity(0.4))
                     .padding(16)
             }
             .confirmationDialog("Pengaturan Game", isPresented: $showQuickMenu, titleVisibility: .visible) {
@@ -51,7 +52,7 @@ struct GameContainerView: View {
     }
 }
 
-struct NFSMWOWebView: UIViewControllerRepresentable {
+struct GameWebView: UIViewControllerRepresentable {
     let url: URL
     @Binding var reloadTrigger: Bool
 
@@ -93,6 +94,8 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
+        
+        // Supaya layar iPhone gak mati sendiri pas lagi asyik main
         UIApplication.shared.isIdleTimerDisabled = true
 
         let config = WKWebViewConfiguration()
@@ -112,7 +115,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         webView.backgroundColor = .black
         webView.scrollView.backgroundColor = .black
 
-        // Abaikan jarak notch di dalam scrollview
+        // Mengunci layar biar gak bisa di-zoom atau mantul-mantul (bounce)
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.bounces = false
         webView.scrollView.alwaysBounceVertical = false
@@ -123,7 +126,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
 
         view.addSubview(webView)
         
-        // KUNCI KEDUA: Paksa WebView menabrak dinding layar absolut via Auto Layout
+        // Auto Layout untuk memaksa game memenuhi layar secara mutlak
         webView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             webView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -140,6 +143,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         webView.reload()
     }
 
+    // Mengizinkan pop-up atau tab baru jika web game memintanya (seperti login)
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if navigationAction.targetFrame == nil, let targetURL = navigationAction.request.url {
             webView.load(URLRequest(url: targetURL))
