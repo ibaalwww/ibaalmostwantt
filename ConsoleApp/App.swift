@@ -32,7 +32,6 @@ struct GameContainerView: View {
             )
             .ignoresSafeArea(.all)
 
-            // Tombol transparan di kiri atas buat jaga-jaga kalau mau refresh game
             Button {
                 showQuickMenu = true
             } label: {
@@ -94,8 +93,6 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
-        
-        // Supaya layar iPhone gak mati sendiri pas lagi asyik main
         UIApplication.shared.isIdleTimerDisabled = true
 
         let config = WKWebViewConfiguration()
@@ -115,7 +112,6 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         webView.backgroundColor = .black
         webView.scrollView.backgroundColor = .black
 
-        // Mengunci layar biar gak bisa di-zoom atau mantul-mantul (bounce)
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.bounces = false
         webView.scrollView.alwaysBounceVertical = false
@@ -126,7 +122,6 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
 
         view.addSubview(webView)
         
-        // Auto Layout untuk memaksa game memenuhi layar secara mutlak
         webView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             webView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -143,7 +138,6 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         webView.reload()
     }
 
-    // Mengizinkan pop-up atau tab baru jika web game memintanya (seperti login)
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if navigationAction.targetFrame == nil, let targetURL = navigationAction.request.url {
             webView.load(URLRequest(url: targetURL))
