@@ -98,7 +98,21 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         preferences.javaScriptEnabled = true
         config.preferences = preferences
 
-        // Memaksa frame webview selebar layar fisik perangkat secara mutlak
+        // Skrip JS untuk memaksa viewport HTML memenuhi layar dan mencegah auto-zoom
+        let jsscript = """
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+        
+        var style = document.createElement('style');
+        style.innerHTML = 'html, body { width: 100%; height: 100%; margin: 0; padding: 0; background: #000; overflow: hidden; }';
+        document.getElementsByTagName('head')[0].appendChild(style);
+        """
+        
+        let userScript = WKUserScript(source: jsscript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        config.userContentController.addUserScript(userScript)
+
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -122,7 +136,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        // Mengisi seluruh bounds superview secara mutlak tanpa sisa margin
+        // Memaksa webview menutupi seluruh layar tanpa sisa margin safe area
         webView.frame = view.bounds
     }
 
