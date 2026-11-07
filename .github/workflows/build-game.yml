@@ -1,6 +1,8 @@
 name: Build PB Mobile Manual
 
 on:
+  push:
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
