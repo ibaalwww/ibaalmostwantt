@@ -14,7 +14,6 @@ struct NFSMWOApp: App {
     }
 }
 
-// AppDelegate untuk memaksa orientasi aplikasi selalu Landscape secara permanen
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
         return [.landscapeLeft, .landscapeRight]
@@ -33,7 +32,6 @@ struct GameContainerView: View {
             )
             .ignoresSafeArea()
 
-            // Tombol menu kecil transparan di pojok kiri atas untuk opsi Reload
             Button {
                 showQuickMenu = true
             } label: {
@@ -108,21 +106,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         preferences.javaScriptEnabled = true
         config.preferences = preferences
 
-        // Skrip injeksi untuk memastikan game merentang 100% tanpa batas viewport kecil
-        let jsscript = """
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
-        document.getElementsByTagName('head')[0].appendChild(meta);
-        
-        var style = document.createElement('style');
-        style.innerHTML = 'html, body { width: 100vw; height: 100vh; margin: 0; padding: 0; background: #000; overflow: hidden; position: fixed; }';
-        document.getElementsByTagName('head')[0].appendChild(style);
-        """
-        
-        let userScript = WKUserScript(source: jsscript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-        config.userContentController.addUserScript(userScript)
-
+        // Tanpa injeksi CSS manual yang berisiko membuat game blank/hitam
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -146,6 +130,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        // Memastikan WebView memenuhi layar secara penuh
         webView.frame = view.bounds
     }
 
@@ -158,18 +143,5 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
             webView.load(URLRequest(url: targetURL))
         }
         return nil
-    }
-
-    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
-        let alert = UIAlertController(title: "NFS MW Online", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in completionHandler() })
-        present(alert, animated: true)
-    }
-
-    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
-        let alert = UIAlertController(title: "NFS MW Online", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Ya", style: .default) { _ in completionHandler(true) })
-        alert.addAction(UIAlertAction(title: "Batal", style: .cancel) { _ in completionHandler(false) })
-        present(alert, animated: true)
     }
 }
