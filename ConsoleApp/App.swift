@@ -106,7 +106,6 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         preferences.javaScriptEnabled = true
         config.preferences = preferences
 
-        // Tanpa injeksi CSS manual yang berisiko membuat game blank/hitam
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -130,7 +129,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        // Memastikan WebView memenuhi layar secara penuh
+        // Memaksa frame WebView mengisi penuh layar secara akurat saat layout terbentuk
         webView.frame = view.bounds
     }
 
