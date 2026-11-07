@@ -1,7 +1,9 @@
-name: Build NFS Game Manual
+name: Build NFS Game Auto & Manual
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]  # Otomatis jalan saat ada push ke branch main/master
+  workflow_dispatch:               # Tetap bisa dijalankan manual lewat tombol
 
 jobs:
   compile_game:
