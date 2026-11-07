@@ -9,7 +9,7 @@ struct NFSMWOApp: App {
     var body: some Scene {
         WindowGroup {
             GameContainerView()
-                .ignoresSafeArea()
+                .ignoresSafeArea(.all) // Memaksa SwiftUI mengabaikan safe area
         }
     }
 }
@@ -30,7 +30,7 @@ struct GameContainerView: View {
                 url: URL(string: "https://web.nfsmwo.com")!,
                 reloadTrigger: $reloadTrigger
             )
-            .ignoresSafeArea()
+            .ignoresSafeArea(.all)
 
             Button {
                 showQuickMenu = true
@@ -47,7 +47,7 @@ struct GameContainerView: View {
                 Button("Batal", role: .cancel) {}
             }
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(Color.black.ignoresSafeArea(.all))
     }
 }
 
@@ -56,8 +56,7 @@ struct NFSMWOWebView: UIViewControllerRepresentable {
     @Binding var reloadTrigger: Bool
 
     func makeUIViewController(context: Context) -> GameWebViewController {
-        let vc = GameWebViewController(url: url)
-        return vc
+        return GameWebViewController(url: url)
     }
 
     func updateUIViewController(_ uiViewController: GameWebViewController, context: Context) {
@@ -113,6 +112,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         webView.backgroundColor = .black
         webView.scrollView.backgroundColor = .black
 
+        // Abaikan jarak notch di dalam scrollview
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.bounces = false
         webView.scrollView.alwaysBounceVertical = false
@@ -123,14 +123,17 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
 
         view.addSubview(webView)
         
+        // KUNCI KEDUA: Paksa WebView menabrak dinding layar absolut via Auto Layout
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            webView.topAnchor.constraint(equalTo: view.topAnchor),
+            webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        ])
+        
         let request = URLRequest(url: gameURL, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30.0)
         webView.load(request)
-    }
-
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        // Memaksa frame WebView mengisi penuh layar secara akurat saat layout terbentuk
-        webView.frame = view.bounds
     }
 
     func reloadGame() {
