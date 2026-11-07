@@ -1,0 +1,46 @@
+name: Build NFS Game Manual
+
+on:
+  workflow_dispatch:
+
+jobs:
+  compile_game:
+    runs-on: macos-15
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode 16
+        run: sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
+
+      - name: Install Tool
+        run: brew install xcodegen
+
+      - name: Generate Project
+        run: xcodegen generate
+
+      - name: Build IPA
+        run: |
+          xcodebuild -project NFSMWOnline.xcodeproj \
+            -scheme NFSMWOnline \
+            -configuration Debug \
+            -sdk iphoneos \
+            -derivedDataPath .build_output \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build
+
+      - name: Package Payload
+        run: |
+          mkdir -p build/Payload
+          cp -r .build_output/Build/Products/Debug-iphoneos/*.app build/Payload/
+          cd build
+          zip -r NFSMWOnline.ipa Payload
+          cd ..
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NFSMWOnline-IPA
+          path: build/NFSMWOnline.ipa
