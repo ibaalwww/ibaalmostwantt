@@ -4,15 +4,20 @@ import WebKit
 
 @main
 struct NFSMWOApp: App {
-    init() {
-        UIApplication.shared.isIdleTimerDisabled = true
-    }
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
         WindowGroup {
             GameContainerView()
                 .ignoresSafeArea()
         }
+    }
+}
+
+// AppDelegate untuk memaksa orientasi aplikasi selalu Landscape secara permanen
+class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        return [.landscapeLeft, .landscapeRight]
     }
 }
 
@@ -80,6 +85,10 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         fatalError("init(coder:) has not been implemented")
     }
 
+    override var shouldAutorotate: Bool { true }
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { [.landscapeLeft, .landscapeRight] }
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation { .landscapeRight }
+
     override var prefersStatusBarHidden: Bool { true }
     override var prefersHomeIndicatorAutoHidden: Bool { true }
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .all }
@@ -87,6 +96,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
+        UIApplication.shared.isIdleTimerDisabled = true
 
         let config = WKWebViewConfiguration()
         config.websiteDataStore = WKWebsiteDataStore.default()
@@ -98,7 +108,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         preferences.javaScriptEnabled = true
         config.preferences = preferences
 
-        // Skrip JS untuk memaksa viewport HTML memenuhi layar dan mencegah auto-zoom
+        // Skrip injeksi untuk memastikan game merentang 100% tanpa batas viewport kecil
         let jsscript = """
         var meta = document.createElement('meta');
         meta.name = 'viewport';
@@ -106,7 +116,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         document.getElementsByTagName('head')[0].appendChild(meta);
         
         var style = document.createElement('style');
-        style.innerHTML = 'html, body { width: 100%; height: 100%; margin: 0; padding: 0; background: #000; overflow: hidden; }';
+        style.innerHTML = 'html, body { width: 100vw; height: 100vh; margin: 0; padding: 0; background: #000; overflow: hidden; position: fixed; }';
         document.getElementsByTagName('head')[0].appendChild(style);
         """
         
@@ -136,7 +146,6 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        // Memaksa webview menutupi seluruh layar tanpa sisa margin safe area
         webView.frame = view.bounds
     }
 
