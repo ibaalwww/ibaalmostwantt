@@ -3,7 +3,7 @@ import UIKit
 import WebKit
 
 @main
-struct PBMobileApp: App {
+struct NFSMWOApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
@@ -22,13 +22,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
 struct GameContainerView: View {
     @State private var reloadTrigger = false
+    @State private var clearStorageTrigger = false
     @State private var showQuickMenu = false
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             GameWebView(
-                url: URL(string: "https://pbmobile.app")!,
-                reloadTrigger: $reloadTrigger
+                url: URL(string: "https://web.nfsmwo.com")!,
+                reloadTrigger: $reloadTrigger,
+                clearStorageTrigger: $clearStorageTrigger
             )
             .ignoresSafeArea(.all)
 
@@ -44,6 +46,9 @@ struct GameContainerView: View {
                 Button("Refresh / Muat Ulang Game") {
                     reloadTrigger = true
                 }
+                Button("Bersihkan Cache & Storage (Hapus 2GB)", role: .destructive) {
+                    clearStorageTrigger = true
+                }
                 Button("Batal", role: .cancel) {}
             }
         }
@@ -54,6 +59,7 @@ struct GameContainerView: View {
 struct GameWebView: UIViewControllerRepresentable {
     let url: URL
     @Binding var reloadTrigger: Bool
+    @Binding var clearStorageTrigger: Bool
 
     func makeUIViewController(context: Context) -> GameWebViewController {
         return GameWebViewController(url: url)
@@ -64,6 +70,12 @@ struct GameWebView: UIViewControllerRepresentable {
             uiViewController.reloadGame()
             DispatchQueue.main.async {
                 reloadTrigger = false
+            }
+        }
+        if clearStorageTrigger {
+            uiViewController.clearGameCache()
+            DispatchQueue.main.async {
+                clearStorageTrigger = false
             }
         }
     }
@@ -130,12 +142,28 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
             webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
         
+        loadGame()
+    }
+
+    func loadGame() {
         let request = URLRequest(url: gameURL, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30.0)
         webView.load(request)
     }
 
     func reloadGame() {
         webView.reload()
+    }
+
+    func clearGameCache() {
+        let dataStore = WKWebsiteDataStore.default()
+        let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
+        let dateFrom = Date(timeIntervalSince1970: 0)
+        
+        dataStore.removeData(ofTypes: dataTypes, modifiedSince: dateFrom) { [weak self] in
+            DispatchQueue.main.async {
+                self?.reloadGame()
+            }
+        }
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
