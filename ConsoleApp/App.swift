@@ -5,15 +5,13 @@ import WebKit
 @main
 struct NFSMWOApp: App {
     init() {
-        // Mencegah layar redup/mati otomatis saat asyik balapan
         UIApplication.shared.isIdleTimerDisabled = true
     }
 
     var body: some Scene {
         WindowGroup {
             GameContainerView()
-                .ignoresSafeArea(.all)
-                .statusBar(hidden: true)
+                .ignoresSafeArea()
         }
     }
 }
@@ -28,16 +26,16 @@ struct GameContainerView: View {
                 url: URL(string: "https://web.nfsmwo.com")!,
                 reloadTrigger: $reloadTrigger
             )
-            .ignoresSafeArea(.all)
+            .ignoresSafeArea()
 
             // Tombol menu kecil transparan di pojok kiri atas untuk opsi Reload
             Button {
                 showQuickMenu = true
             } label: {
                 Image(systemName: "ellipsis.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundColor(.white.opacity(0.4))
-                    .padding(12)
+                    .font(.system(size: 24))
+                    .foregroundColor(.white.opacity(0.6))
+                    .padding(16)
             }
             .confirmationDialog("Pengaturan Game", isPresented: $showQuickMenu, titleVisibility: .visible) {
                 Button("Refresh / Muat Ulang Game") {
@@ -46,7 +44,7 @@ struct GameContainerView: View {
                 Button("Batal", role: .cancel) {}
             }
         }
-        .background(Color.black.ignoresSafeArea(.all))
+        .background(Color.black.ignoresSafeArea())
     }
 }
 
@@ -82,7 +80,6 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         fatalError("init(coder:) has not been implemented")
     }
 
-    // Mengunci mode layar penuh dan menyembunyikan gestur sistem agar tombol NOS/setir akurat
     override var prefersStatusBarHidden: Bool { true }
     override var prefersHomeIndicatorAutoHidden: Bool { true }
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .all }
@@ -92,10 +89,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         view.backgroundColor = .black
 
         let config = WKWebViewConfiguration()
-        
-        let dataStore = WKWebsiteDataStore.default()
-        config.websiteDataStore = dataStore
-        
+        config.websiteDataStore = WKWebsiteDataStore.default()
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
@@ -104,8 +98,8 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         preferences.javaScriptEnabled = true
         config.preferences = preferences
 
-        webView = WKWebView(frame: view.bounds, configuration: config)
-        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        // Memaksa frame webview selebar layar fisik perangkat secara mutlak
+        webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.isOpaque = false
@@ -124,6 +118,12 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         
         let request = URLRequest(url: gameURL, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30.0)
         webView.load(request)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Mengisi seluruh bounds superview secara mutlak tanpa sisa margin
+        webView.frame = view.bounds
     }
 
     func reloadGame() {
