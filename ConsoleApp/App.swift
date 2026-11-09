@@ -3,7 +3,7 @@ import UIKit
 import WebKit
 
 @main
-struct NFSMWOApp: App {
+struct NFSU2App: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
@@ -28,7 +28,7 @@ struct GameContainerView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             GameWebView(
-                url: URL(string: "https://web.nfsmwo.com")!,
+                url: URL(string: "https://nfsu2.xyz")!,
                 reloadTrigger: $reloadTrigger,
                 clearStorageTrigger: $clearStorageTrigger
             )
@@ -46,7 +46,7 @@ struct GameContainerView: View {
                 Button("Refresh / Muat Ulang Game") {
                     reloadTrigger = true
                 }
-                Button("Bersihkan Cache & Storage (Hapus 2GB)", role: .destructive) {
+                Button("Bersihkan Cache & Storage", role: .destructive) {
                     clearStorageTrigger = true
                 }
                 Button("Batal", role: .cancel) {}
