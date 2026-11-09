@@ -24,9 +24,12 @@ struct GameContainerView: View {
     @State private var reloadTrigger = false
     @State private var clearStorageTrigger = false
     @State private var showQuickMenu = false
+    @State private var showFPS = true
+    @StateObject private var fpsCounter = FPSCounter()
 
     var body: some View {
         ZStack(alignment: .topLeading) {
+            // Main WebView
             GameWebView(
                 url: URL(string: "https://nfsu2.xyz")!,
                 reloadTrigger: $reloadTrigger,
@@ -34,6 +37,7 @@ struct GameContainerView: View {
             )
             .ignoresSafeArea(.all)
 
+            // Tombol Menu Pojok Kiri Atas
             Button {
                 showQuickMenu = true
             } label: {
@@ -46,13 +50,79 @@ struct GameContainerView: View {
                 Button("Refresh / Muat Ulang Game") {
                     reloadTrigger = true
                 }
+                Button(showFPS ? "Sembunyikan FPS Counter" : "Tampilkan FPS Counter") {
+                    showFPS.toggle()
+                }
                 Button("Bersihkan Cache & Storage", role: .destructive) {
                     clearStorageTrigger = true
                 }
                 Button("Batal", role: .cancel) {}
             }
+
+            // FPS Overlay Pojok Kanan Atas
+            if showFPS {
+                HStack {
+                    Spacer()
+                    Text("\(fpsCounter.fps) FPS")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundColor(.green)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.black.opacity(0.65))
+                        .cornerRadius(8)
+                        .padding(.top, 16)
+                        .padding(.trailing, 20)
+                }
+                .allowsHitTesting(false) // Sentuhan tembus ke game (tidak menghalangi tombol kontrol game)
+            }
         }
         .background(Color.black.ignoresSafeArea(.all))
+        .onAppear {
+            fpsCounter.start()
+        }
+        .onDisappear {
+            fpsCounter.stop()
+        }
+    }
+}
+
+// Pengukur FPS Real-Time Menggunakan CADisplayLink Layar iOS
+class FPSCounter: ObservableObject {
+    @Published var fps: Int = 60
+    private var displayLink: CADisplayLink?
+    private var lastTimestamp: CFTimeInterval = 0
+    private var frameCount: Int = 0
+
+    func start() {
+        stop()
+        displayLink = CADisplayLink(target: self, selector: #selector(update))
+        displayLink?.add(to: .main, forMode: .common)
+    }
+
+    func stop() {
+        displayLink?.invalidate()
+        displayLink = nil
+        lastTimestamp = 0
+        frameCount = 0
+    }
+
+    @objc private func update(link: CADisplayLink) {
+        if lastTimestamp == 0 {
+            lastTimestamp = link.timestamp
+            return
+        }
+
+        frameCount += 1
+        let delta = link.timestamp - lastTimestamp
+
+        if delta >= 1.0 {
+            let currentFPS = Int(round(Double(frameCount) / delta))
+            DispatchQueue.main.async {
+                self.fps = currentFPS
+            }
+            frameCount = 0
+            lastTimestamp = link.timestamp
+        }
     }
 }
 
@@ -111,11 +181,15 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         config.websiteDataStore = WKWebsiteDataStore.default()
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
-        config.preferences.javaScriptCanOpenWindowsAutomatically = true
+        config.suppressesIncrementalRendering = false
 
         let preferences = WKPreferences()
         preferences.javaScriptEnabled = true
         config.preferences = preferences
+
+        let webpagePrefs = WKWebpagePreferences()
+        webpagePrefs.allowsContentJavaScript = true
+        config.defaultWebpagePreferences = webpagePrefs
 
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
@@ -133,7 +207,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
 
         view.addSubview(webView)
-        
+
         webView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             webView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -141,7 +215,7 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
-        
+
         loadGame()
     }
 
@@ -158,11 +232,18 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         let dataStore = WKWebsiteDataStore.default()
         let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
         let dateFrom = Date(timeIntervalSince1970: 0)
-        
+
         dataStore.removeData(ofTypes: dataTypes, modifiedSince: dateFrom) { [weak self] in
             DispatchQueue.main.async {
                 self?.reloadGame()
             }
+        }
+    }
+
+    // Auto-recover saat proses WebContent crash (Jetsam / OOM)
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.loadGame()
         }
     }
 
