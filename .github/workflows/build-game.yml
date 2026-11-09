@@ -1,4 +1,4 @@
-name: Build NFS MW Online Manual
+name: Build NFSU2 Manual
 
 on:
   push:
@@ -23,8 +23,8 @@ jobs:
 
       - name: Build IPA
         run: |
-          xcodebuild -project NFSMWOnline.xcodeproj \
-            -scheme NFSMWOnline \
+          xcodebuild -project NFSU2.xcodeproj \
+            -scheme NFSU2 \
             -configuration Debug \
             -sdk iphoneos \
             -derivedDataPath .build_output \
@@ -38,11 +38,11 @@ jobs:
           mkdir -p build/Payload
           cp -r .build_output/Build/Products/Debug-iphoneos/*.app build/Payload/
           cd build
-          zip -r NFSMWOnline.ipa Payload
+          zip -r NFSU2.ipa Payload
           cd ..
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NFSMWOnline-IPA
-          path: build/NFSMWOnline.ipa
+          name: NFSU2-IPA
+          path: build/NFSU2.ipa
