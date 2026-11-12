@@ -20,7 +20,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 
+// MARK: - Layar Utama Game + Dylib-Style Pop-Up Overlay
 struct GameContainerView: View {
+    @AppStorage("is_game_activated_v1") private var isActivated: Bool = false
+    @AppStorage("saved_license_key") private var savedKey: String = ""
+
     @State private var reloadTrigger = false
     @State private var clearStorageTrigger = false
     @State private var showQuickMenu = false
@@ -29,38 +33,48 @@ struct GameContainerView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // Main WebView
+            // 1. Layer Background: Game NFSU2 Langsung Tampil
             GameWebView(
                 url: URL(string: "https://nfsu2.xyz")!,
                 reloadTrigger: $reloadTrigger,
                 clearStorageTrigger: $clearStorageTrigger
             )
             .ignoresSafeArea(.all)
+            .blur(radius: isActivated ? 0 : 8) // Blur halus saat pop-up key aktif
+            .allowsHitTesting(isActivated)     // Blokir sentuhan ke game sebelum key valid
 
-            // Tombol Menu Pojok Kiri Atas
-            Button {
-                showQuickMenu = true
-            } label: {
-                Image(systemName: "ellipsis.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(.white.opacity(0.4))
-                    .padding(16)
-            }
-            .confirmationDialog("Pengaturan Game", isPresented: $showQuickMenu, titleVisibility: .visible) {
-                Button("Refresh / Muat Ulang Game") {
-                    reloadTrigger = true
+            // 2. Tombol Menu Pojok Kiri Atas (Hanya aktif jika sudah unlock)
+            if isActivated {
+                Button {
+                    showQuickMenu = true
+                } label: {
+                    Image(systemName: "ellipsis.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white.opacity(0.4))
+                        .padding(16)
                 }
-                Button(showFPS ? "Sembunyikan FPS Counter" : "Tampilkan FPS Counter") {
-                    showFPS.toggle()
+                .confirmationDialog("Pengaturan Game", isPresented: $showQuickMenu, titleVisibility: .visible) {
+                    Button("Refresh / Muat Ulang Game") {
+                        reloadTrigger = true
+                    }
+                    Button(showFPS ? "Sembunyikan FPS Counter" : "Tampilkan FPS Counter") {
+                        showFPS.toggle()
+                    }
+                    Button("Bersihkan Cache & Storage", role: .destructive) {
+                        clearStorageTrigger = true
+                    }
+                    Button("Kunci Ulang / Ganti Key", role: .destructive) {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            isActivated = false
+                            savedKey = ""
+                        }
+                    }
+                    Button("Batal", role: .cancel) {}
                 }
-                Button("Bersihkan Cache & Storage", role: .destructive) {
-                    clearStorageTrigger = true
-                }
-                Button("Batal", role: .cancel) {}
             }
 
-            // FPS Overlay Pojok Kanan Atas
-            if showFPS {
+            // 3. FPS Overlay Pojok Kanan Atas
+            if showFPS && isActivated {
                 HStack {
                     Spacer()
                     Text("\(fpsCounter.fps) FPS")
@@ -73,7 +87,23 @@ struct GameContainerView: View {
                         .padding(.top, 16)
                         .padding(.trailing, 20)
                 }
-                .allowsHitTesting(false) // Sentuhan tembus ke game (tidak menghalangi tombol kontrol game)
+                .allowsHitTesting(false)
+            }
+
+            // 4. Dylib-Style Pop-Up Dialog Overlay
+            if !isActivated {
+                ZStack {
+                    Color.black.opacity(0.55)
+                        .ignoresSafeArea(.all)
+
+                    DylibActivationPopup(onSuccess: { validKey in
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            savedKey = validKey
+                            isActivated = true
+                        }
+                    })
+                }
+                .transition(.opacity)
             }
         }
         .background(Color.black.ignoresSafeArea(.all))
@@ -86,7 +116,184 @@ struct GameContainerView: View {
     }
 }
 
-// Pengukur FPS Real-Time Menggunakan CADisplayLink Layar iOS
+// MARK: - Pop-Up Bergaya Dylib / Mod Menu iOS
+struct DylibActivationPopup: View {
+    @Environment(\.openURL) private var openURL
+    @State private var inputKey: String = ""
+    @State private var errorMessage: String = ""
+    @State private var isChecking: Bool = false
+
+    let onSuccess: (String) -> Void
+
+    // Daftar Key Offline (Bisa ditambah dari 1.000 kode tadi)
+    private let localValidKeys: Set<String> = [
+        "IBAAL-NFSU2-VIP",
+        "IBAAL-8K9M-2P4X",
+        "IBAAL-7N3V-9Q6W",
+        "IBAAL-4R8T-5Z2Y",
+        "IBAAL2026"
+    ]
+
+    // Opsional: Link Raw GitHub berisi daftar key (1 key per baris)
+    private let remoteKeysURL: String = ""
+
+    var body: some View {
+        VStack(spacing: 14) {
+            // Header Pop-up
+            HStack(spacing: 8) {
+                Image(systemName: "key.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.green)
+
+                Text("iBaaL CERT STORE • VIP ACCESS")
+                    .font(.system(size: 14, weight: .heavy, design: .monospaced))
+                    .foregroundColor(.white)
+            }
+
+            Text("Masukkan Access Key untuk membuka game.\nBelum punya key? Hubungi Admin di bawah:")
+                .font(.system(size: 11.5))
+                .foregroundColor(.white.opacity(0.8))
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+
+            // Kolom Input + Tombol Unlock
+            HStack(spacing: 8) {
+                TextField("IBAAL-XXXX-XXXX", text: $inputKey)
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .textInputAutocapitalization(.characters)
+                    .disableAutocorrection(true)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(Color.white.opacity(0.12))
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    )
+
+                Button(action: verifyKey) {
+                    if isChecking {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                            .frame(width: 72, height: 36)
+                    } else {
+                        Text("UNLOCK")
+                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                            .foregroundColor(.black)
+                            .frame(width: 72, height: 36)
+                    }
+                }
+                .background(Color.green)
+                .cornerRadius(8)
+                .disabled(isChecking || inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+
+            if !errorMessage.isEmpty {
+                Text(errorMessage)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.red)
+            }
+
+            Divider()
+                .background(Color.white.opacity(0.15))
+
+            // Tombol Direct Klik WhatsApp & Telegram
+            HStack(spacing: 10) {
+                // Tombol WhatsApp (Otomatis isi pesan order)
+                Button {
+                    let text = "Halo Admin iBaaL, saya mau beli Access Key game NFS Underground 2 iOS."
+                    if let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                       let url = URL(string: "https://wa.me/6285359220642?text=\(encoded)") {
+                        openURL(url)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "message.fill")
+                            .font(.system(size: 12))
+                        Text("WA: 085359220642")
+                            .font(.system(size: 11.5, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(Color(red: 0.14, green: 0.65, blue: 0.35))
+                    .cornerRadius(8)
+                }
+
+                // Tombol Telegram (@meugom)
+                Button {
+                    if let url = URL(string: "https://t.me/meugom") {
+                        openURL(url)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 12))
+                        Text("Tele: @meugom")
+                            .font(.system(size: 11.5, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(Color(red: 0.15, green: 0.52, blue: 0.85))
+                    .cornerRadius(8)
+                }
+            }
+        }
+        .padding(18)
+        .frame(width: 390)
+        .background(.ultraThinMaterial)
+        .background(Color.black.opacity(0.75))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.25), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.6), radius: 20, x: 0, y: 10)
+    }
+
+    private func verifyKey() {
+        let cleaned = inputKey.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        errorMessage = ""
+
+        if localValidKeys.contains(cleaned) {
+            onSuccess(cleaned)
+            return
+        }
+
+        guard !remoteKeysURL.isEmpty, let url = URL(string: remoteKeysURL) else {
+            errorMessage = "Key tidak valid! Silakan hubungi WA / Tele di bawah."
+            return
+        }
+
+        isChecking = true
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
+        request.httpMethod = "GET"
+
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            DispatchQueue.main.async {
+                isChecking = false
+                if let data = data, let content = String(data: data, encoding: .utf8) {
+                    let remoteKeys = content
+                        .components(separatedBy: .newlines)
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+                        .filter { !$0.isEmpty }
+
+                    if remoteKeys.contains(cleaned) {
+                        onSuccess(cleaned)
+                    } else {
+                        errorMessage = "Key salah atau sudah tidak aktif."
+                    }
+                } else {
+                    errorMessage = "Gagal cek server. Periksa koneksi internet."
+                }
+            }
+        }.resume()
+    }
+}
+
+// MARK: - Pengukur FPS Real-Time
 class FPSCounter: ObservableObject {
     @Published var fps: Int = 60
     private var displayLink: CADisplayLink?
@@ -126,6 +333,7 @@ class FPSCounter: ObservableObject {
     }
 }
 
+// MARK: - WebView Container & Anti-Crash Delegate
 struct GameWebView: UIViewControllerRepresentable {
     let url: URL
     @Binding var reloadTrigger: Bool
@@ -240,7 +448,6 @@ class GameWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegat
         }
     }
 
-    // Auto-recover saat proses WebContent crash (Jetsam / OOM)
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.loadGame()
