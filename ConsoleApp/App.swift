@@ -33,17 +33,15 @@ struct GameContainerView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // 1. Layer Background: Game NFSU2 Langsung Tampil
             GameWebView(
                 url: URL(string: "https://nfsu2.xyz")!,
                 reloadTrigger: $reloadTrigger,
                 clearStorageTrigger: $clearStorageTrigger
             )
             .ignoresSafeArea(.all)
-            .blur(radius: isActivated ? 0 : 8) // Blur halus saat pop-up key aktif
-            .allowsHitTesting(isActivated)     // Blokir sentuhan ke game sebelum key valid
+            .blur(radius: isActivated ? 0 : 8)
+            .allowsHitTesting(isActivated)
 
-            // 2. Tombol Menu Pojok Kiri Atas (Hanya aktif jika sudah unlock)
             if isActivated {
                 Button {
                     showQuickMenu = true
@@ -73,7 +71,6 @@ struct GameContainerView: View {
                 }
             }
 
-            // 3. FPS Overlay Pojok Kanan Atas
             if showFPS && isActivated {
                 HStack {
                     Spacer()
@@ -90,7 +87,6 @@ struct GameContainerView: View {
                 .allowsHitTesting(false)
             }
 
-            // 4. Dylib-Style Pop-Up Dialog Overlay
             if !isActivated {
                 ZStack {
                     Color.black.opacity(0.55)
@@ -121,25 +117,17 @@ struct DylibActivationPopup: View {
     @Environment(\.openURL) private var openURL
     @State private var inputKey: String = ""
     @State private var errorMessage: String = ""
-    @State private var isChecking: Bool = false
 
     let onSuccess: (String) -> Void
 
-    // Daftar Key Offline (Bisa ditambah dari 1.000 kode tadi)
-    private let localValidKeys: Set<String> = [
+    // Master Key Admin (Selalu Valid)
+    private let masterKeys: Set<String> = [
         "IBAAL-NFSU2-VIP",
-        "IBAAL-8K9M-2P4X",
-        "IBAAL-7N3V-9Q6W",
-        "IBAAL-4R8T-5Z2Y",
         "IBAAL2026"
     ]
 
-    // Opsional: Link Raw GitHub berisi daftar key (1 key per baris)
-    private let remoteKeysURL: String = ""
-
     var body: some View {
         VStack(spacing: 14) {
-            // Header Pop-up
             HStack(spacing: 8) {
                 Image(systemName: "key.fill")
                     .font(.system(size: 16, weight: .bold))
@@ -156,7 +144,6 @@ struct DylibActivationPopup: View {
                 .multilineTextAlignment(.center)
                 .lineSpacing(2)
 
-            // Kolom Input + Tombol Unlock
             HStack(spacing: 8) {
                 TextField("IBAAL-XXXX-XXXX", text: $inputKey)
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
@@ -173,20 +160,14 @@ struct DylibActivationPopup: View {
                     )
 
                 Button(action: verifyKey) {
-                    if isChecking {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
-                            .frame(width: 72, height: 36)
-                    } else {
-                        Text("UNLOCK")
-                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
-                            .foregroundColor(.black)
-                            .frame(width: 72, height: 36)
-                    }
+                    Text("UNLOCK")
+                        .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                        .foregroundColor(.black)
+                        .frame(width: 72, height: 36)
                 }
                 .background(Color.green)
                 .cornerRadius(8)
-                .disabled(isChecking || inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(inputKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
 
             if !errorMessage.isEmpty {
@@ -198,9 +179,7 @@ struct DylibActivationPopup: View {
             Divider()
                 .background(Color.white.opacity(0.15))
 
-            // Tombol Direct Klik WhatsApp & Telegram
             HStack(spacing: 10) {
-                // Tombol WhatsApp (Otomatis isi pesan order)
                 Button {
                     let text = "Halo Admin iBaaL, saya mau beli Access Key game NFS Underground 2 iOS."
                     if let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
@@ -221,7 +200,6 @@ struct DylibActivationPopup: View {
                     .cornerRadius(8)
                 }
 
-                // Tombol Telegram (@meugom)
                 Button {
                     if let url = URL(string: "https://t.me/meugom") {
                         openURL(url)
@@ -254,42 +232,45 @@ struct DylibActivationPopup: View {
     }
 
     private func verifyKey() {
-        let cleaned = inputKey.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        // Normalisasi: hapus spasi & ubah em-dash iOS (— / –) jadi tanda minus biasa (-)
+        let cleaned = inputKey
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+            .replacingOccurrences(of: "—", with: "-")
+            .replacingOccurrences(of: "–", with: "-")
+            .replacingOccurrences(of: " ", with: "")
+
         errorMessage = ""
 
-        if localValidKeys.contains(cleaned) {
+        if masterKeys.contains(cleaned) || isValidChecksumKey(cleaned) {
             onSuccess(cleaned)
-            return
+        } else {
+            errorMessage = "Key tidak valid! Pastikan format IBAAL-XXXX-XXXX benar."
         }
+    }
 
-        guard !remoteKeysURL.isEmpty, let url = URL(string: remoteKeysURL) else {
-            errorMessage = "Key tidak valid! Silakan hubungi WA / Tele di bawah."
-            return
-        }
+    // Validasi Rumus Rahasia iBaaL (Format: IBAAL-XXXX-XXXX)
+    private func isValidChecksumKey(_ key: String) -> Bool {
+        let parts = key.split(separator: "-")
+        guard parts.count == 3, parts[0] == "IBAAL" else { return false }
 
-        isChecking = true
-        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
-        request.httpMethod = "GET"
+        let part1 = String(parts[1])
+        let part2 = String(parts[2])
+        guard part1.count == 4, part2.count == 4 else { return false }
 
-        URLSession.shared.dataTask(with: request) { data, _, _ in
-            DispatchQueue.main.async {
-                isChecking = false
-                if let data = data, let content = String(data: data, encoding: .utf8) {
-                    let remoteKeys = content
-                        .components(separatedBy: .newlines)
-                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
-                        .filter { !$0.isEmpty }
-
-                    if remoteKeys.contains(cleaned) {
-                        onSuccess(cleaned)
-                    } else {
-                        errorMessage = "Key salah atau sudah tidak aktif."
-                    }
-                } else {
-                    errorMessage = "Gagal cek server. Periksa koneksi internet."
-                }
+        // Hitung nilai ASCII dari 8 karakter acak
+        let combined = part1 + part2
+        var sum = 0
+        for scalar in combined.unicodeScalars {
+            // Hanya izinkan huruf A-Z dan angka 0-9
+            guard (scalar.value >= 48 && scalar.value <= 57) || (scalar.value >= 65 && scalar.value <= 90) else {
+                return false
             }
-        }.resume()
+            sum += Int(scalar.value)
+        }
+
+        // Rumus kunci rahasia: total ASCII habis dibagi 7
+        return sum % 7 == 0
     }
 }
 
